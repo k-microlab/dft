@@ -20,4 +20,4 @@ num-complex = { version = "0.4.6", default-features = false }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
-assert = "0.7"
+assert = "0.7.5"

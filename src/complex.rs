@@ -6,42 +6,30 @@ use num_traits::Float;
 
 use {Operation, Plan, Transform};
 
-impl<T> Transform<T> for [Complex<T>]
+impl<T, const N: usize> Transform<T, N> for [Complex<T>; N]
 where
     T: Float,
 {
-    fn transform(&mut self, plan: &Plan<T>) {
-        let n = self.len();
-        assert!(n <= plan.n);
-        rearrange(self, n);
-        calculate(self, n, &plan.factors);
+    fn transform(&mut self, plan: &Plan<T, N>) {
+        rearrange(self);
+        calculate(self, &plan.factors);
         if let Operation::Inverse = plan.operation {
-            scale(self, n);
+            scale(self, N);
         }
     }
 }
 
-impl<T> Transform<T> for Vec<Complex<T>>
-where
-    T: Float,
-{
-    #[inline(always)]
-    fn transform(&mut self, plan: &Plan<T>) {
-        Transform::transform(&mut self[..], plan)
-    }
-}
-
 #[inline(always)]
-fn calculate<T>(data: &mut [Complex<T>], n: usize, factors: &[Complex<T>])
+fn calculate<T, const N: usize>(data: &mut [Complex<T>; N], factors: &[Complex<T>; N])
 where
     T: Float,
 {
     let mut k = 0;
     let mut step = 1;
-    while step < n {
+    while step < N {
         let jump = step << 1;
         for mut i in 0..step {
-            while i < n {
+            while i < N {
                 let j = i + step;
                 unsafe {
                     let product = *factors.get_unchecked(k) * *data.get_unchecked(j);
@@ -57,13 +45,13 @@ where
 }
 
 #[inline(always)]
-fn rearrange<T>(data: &mut [Complex<T>], n: usize) {
+fn rearrange<T, const N: usize>(data: &mut [Complex<T>; N]) {
     let mut j = 0;
-    for i in 0..n {
+    for i in 0..N {
         if j > i {
             data.swap(i, j);
         }
-        let mut mask = n >> 1;
+        let mut mask = N >> 1;
         while j & mask != 0 {
             j &= !mask;
             mask >>= 1;

@@ -1,3 +1,5 @@
+#![no_std]
+#![feature(generic_const_exprs)]
 //! [Discrete Fourier transform][1].
 //!
 //! The `Transform` trait is responsible for performing the transform. The trait
@@ -18,10 +20,13 @@
 //! ## Example
 //!
 //! ```
+//! use std::mem::MaybeUninit;
 //! use dft::{Operation, Plan, c64};
 //!
-//! let plan = Plan::new(Operation::Forward, 512);
-//! let mut data = vec![c64::new(42.0, 69.0); 512];
+//! const N: usize = 512;
+//! let mut factors = MaybeUninit::uninit();
+//! let plan = Plan::new(Operation::Forward, &mut factors);
+//! let mut data = [c64::new(42.0, 69.0); N];
 //! dft::transform(&mut data, &plan);
 //! ```
 //!
@@ -36,6 +41,7 @@
 extern crate num_complex;
 extern crate num_traits;
 
+use core::mem::MaybeUninit;
 use num_complex::Complex;
 use num_traits::{Float, FloatConst, One};
 
@@ -65,37 +71,36 @@ pub enum Operation {
 
 /// A transform plan.
 #[derive(Clone, Debug)]
-pub struct Plan<T> {
-    n: usize,
-    factors: Vec<Complex<T>>,
+pub struct Plan<'a, T, const N: usize> {
+    factors: &'a [Complex<T>; N],
     operation: Operation,
 }
 
 /// The transform.
-pub trait Transform<T> {
+pub trait Transform<T, const N: usize> {
     /// Perform the transform.
-    fn transform(&mut self, plan: &Plan<T>);
+    fn transform(&mut self, plan: &Plan<T, N>);
 }
 
-impl<T> Plan<T>
+impl<'a, T, const N: usize> Plan<'a, T, N>
 where
     T: Float + FloatConst,
 {
     /// Create a plan for a specific operation and specific number of points.
     ///
     /// The number of points should be a power of two.
-    pub fn new(operation: Operation, n: usize) -> Self {
-        assert!(n.is_power_of_two());
+    pub fn new(operation: Operation, factors: &'a mut MaybeUninit<[Complex<T>; N]>) -> Self {
+        assert!(N.is_power_of_two());
         let one = T::one();
         let two = one + one;
-        let mut factors = vec![];
         let sign = if let Operation::Forward = operation {
             -one
         } else {
             one
         };
+        let mut i = 0;
         let mut step = 1;
-        while step < n {
+        while step < N {
             let (multiplier, mut factor) = {
                 let theta = T::PI() / T::from(step).unwrap();
                 let sine = (theta / two).sin();
@@ -105,15 +110,15 @@ where
                 )
             };
             for _ in 0..step {
-                factors.push(factor);
+                unsafe { factors.as_mut_ptr().cast::<Complex<T>>().add(i).write(factor) }
+                i += 1;
                 factor = multiplier * factor + factor;
             }
             step <<= 1;
         }
         Plan {
-            n: n,
-            factors: factors,
-            operation: operation,
+            factors: unsafe { factors.assume_init_ref() },
+            operation,
         }
     }
 }
@@ -122,9 +127,19 @@ where
 ///
 /// The function is a shortcut for `Transform::transform`.
 #[inline(always)]
-pub fn transform<D: ?Sized, T>(data: &mut D, plan: &Plan<T>)
+pub fn transform<D: ?Sized, T, const N: usize>(data: &mut D, plan: &Plan<T, N>)
 where
-    D: Transform<T>,
+    D: Transform<T, N>,
 {
     Transform::transform(data, plan);
+}
+
+#[inline]
+pub const unsafe fn as_array<T, const N: usize>(slice: &[T]) -> &[T; N] {
+    &*(slice.as_ptr() as *const [_; N])
+}
+
+#[inline]
+pub const unsafe fn as_mut_array<T, const N: usize>(slice: &mut [T]) -> &mut [T; N] {
+    &mut *(slice.as_mut_ptr() as *mut [_; N])
 }

@@ -74,7 +74,7 @@ pub struct Plan<T> {
 /// The transform.
 pub trait Transform<T> {
     /// Perform the transform.
-    fn transform(&mut self, &Plan<T>);
+    fn transform(&mut self, plan: &Plan<T>);
 }
 
 impl<T> Plan<T>

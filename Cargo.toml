@@ -1,6 +1,6 @@
 [package]
 name = "dft"
-version = "0.5.5"
+version = "0.6.0"
 license = "Apache-2.0/MIT"
 authors = [
     "Christopher J. Woodall <chris.j.woodall@gmail.com>",
@@ -16,8 +16,8 @@ categories = ["algorithms", "science"]
 keywords = ["fourier", "transform"]
 
 [dependencies]
-num-complex = { version = "0.1.35", default-features = false }
-num-traits = { version = "0.1.35", default-features = false }
+num-complex = { version = "0.4.6", default-features = false }
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 assert = "0.7"
